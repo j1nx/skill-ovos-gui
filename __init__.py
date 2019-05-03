@@ -402,26 +402,34 @@ class Mark2(MycroftSkill):
         self.start_idle_event(30)
 
     def on_gui_page_show(self, message):
+        with self.idle_lock:
+            self._on_gui_page_show(message)
+
+    def _on_gui_page_show(self, message):
         if 'mark-2' not in message.data.get('__from', ''):
             # Some skill other than the handler is showing a page
             self.has_show_page = True
 
-            # If a skill overrides the idle do not switch page
-            override_idle = message.data.get('__idle')
-            if override_idle is True:
-                # Disable idle screen
-                self.log.info('Cancelling Idle screen')
-                self.cancel_idle_event()
-                self.override_idle = (message, time.monotonic())
-            elif isinstance(override_idle, int):
-                # Set the indicated idle timeout
-                self.log.info('Overriding idle timer to'
-                              ' {} seconds'.format(override_idle))
-                self.start_idle_event(override_idle)
-            elif (message.data['page'] and
+            if not self.override_idle:
+                # If a skill overrides the idle do not switch page
+                override_idle = message.data.get('__idle')
+                if override_idle is True:
+                    # Disable idle screen
+                    self.log.info('Cancelling Idle screen')
+                    self._cancel_idle_event()
+                    self.override_idle = (message, time.monotonic())
+                    # Trigger the overridden idle screen
+                    self._show_idle_screen()
+                elif isinstance(override_idle, int):
+                    # Set the indicated idle timeout
+                    self.log.info('Overriding idle timer to'
+                                  ' {} seconds'.format(override_idle))
+                    self._start_idle_event(override_idle)
+
+            if (message.data['page'] and not override_idle and
                     not message.data['page'][0].endswith('idle.qml')):
                 # Set default idle screen timer
-                self.start_idle_event(30)
+                self._start_idle_event(30)
 
     def on_handler_mouth_reset(self, message):
         """ Restore viseme to a smile. """
@@ -443,28 +451,6 @@ class Mark2(MycroftSkill):
         self.gui['state'] = 'awake'
         self.gui.show_page('all.qml')
 
-    def on_handler_complete(self, message):
-        """ When a skill finishes executing clear the showing page state. """
-        handler = message.data.get('handler', '')
-        # Ignoring handlers from this skill and from the background clock
-        if 'Mark2' in handler:
-            return
-        if 'TimeSkill.update_display' in handler:
-            return
-
-        self.has_show_page = False
-
-        try:
-            if self.hourglass_info[handler] == -1:
-                self.enclosure.reset()
-            del self.hourglass_info[handler]
-        except:
-            # There is a slim chance the self.hourglass_info might not
-            # be populated if this skill reloads at just the right time
-            # so that it misses the mycroft.skill.handler.start but
-            # catches the mycroft.skill.handler.complete
-            pass
-
     #####################################################################
     # Manage "speaking" visual
 
@@ -483,6 +469,11 @@ class Mark2(MycroftSkill):
     #####################################################################
     # Manage "idle" visual state
     def cancel_idle_event(self):
+        """ Cancel the idle event timer. """
+        with self.idle_lock:
+            return self._cancel_idle_event()
+
+    def _cancel_idle_event(self):
         self.idle_next = 0
         self.cancel_scheduled_event('IdleCheck')
 
@@ -494,27 +485,34 @@ class Mark2(MycroftSkill):
             weak: set to true if the time should be able to be overridden
         """
         with self.idle_lock:
-            if time.monotonic() + offset < self.idle_next:
-                self.log.info('No update, before next time')
-                return
+            self._start_idle_event(offset, weak)
 
-            self.log.info('Starting idle event')
-            try:
-                if not weak:
-                    self.idle_next = time.monotonic() + offset
-                # Clear any existing checker
-                self.cancel_scheduled_event('IdleCheck')
-                time.sleep(0.5)
-                self.schedule_event(self.show_idle_screen, int(offset),
-                                    name='IdleCheck')
-                self.log.info('Showing idle screen in '
-                              '{} seconds'.format(offset))
-            except Exception as e:
-                self.log.exception(repr(e))
+    def _start_idle_event(self, offset=60, weak=False):
+        if time.monotonic() + offset < self.idle_next:
+            self.log.info('No update, before next time')
+            return
+
+        self.log.info('Starting idle event')
+        try:
+            if not weak:
+                self.idle_next = time.monotonic() + offset
+            # Clear any existing checker
+            self.cancel_scheduled_event('IdleCheck')
+            time.sleep(0.5)
+            self.schedule_event(self.show_idle_screen, int(offset),
+                                name='IdleCheck')
+            self.log.info('Showing idle screen in '
+                          '{} seconds'.format(offset))
+        except Exception as e:
+            self.log.exception(repr(e))
 
     def show_idle_screen(self):
         """ Show the idle screen or return to the skill that's overriding idle.
         """
+        with self.idle_lock:
+            self._show_idle_screen()
+
+    def _show_idle_screen(self):
         self.log.debug('Showing idle screen')
         screen = None
         if self.override_idle:
