@@ -159,6 +159,7 @@ class Mark2(MycroftSkill):
             self.bus.on('mycroft.skills.initialized', self.reset_face)
             self.bus.on('mycroft.mark2.register_idle',
                         self.on_register_idle)
+            self.bus.on('mycroft.device.show.idle', self.on_device_show_idle)
 
             self.add_event('mycroft.mark2.reset_idle',
                            self.restore_idle_screen)
@@ -542,6 +543,10 @@ class Mark2(MycroftSkill):
                               '{} seconds'.format(offset))
             except Exception as e:
                 self.log.exception(repr(e))
+
+    def on_device_show_idle(self, _):
+        self.override_idle = None
+        self.show_idle_screen()
 
     def show_idle_screen(self):
         """ Show the idle screen or return to the skill that's overriding idle.
