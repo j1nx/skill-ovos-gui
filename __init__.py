@@ -35,13 +35,6 @@ from .listener import (get_rms, open_mic_stream, read_file_from,
                        INPUT_FRAMES_PER_BLOCK)
 
 
-# Definitions used when sending volume over i2c
-VOL_MAX = 30
-VOL_OFFSET = 15
-VOL_SMAX = VOL_MAX - VOL_OFFSET
-VOL_ZERO = 0
-
-
 def compare_origin(m1, m2):
     origin1 = m1.data['__from'] if isinstance(m1, Message) else m1
     origin2 = m2.data['__from'] if isinstance(m2, Message) else m2
@@ -58,18 +51,16 @@ def clip(val, minimum, maximum):
     return min(max(val, minimum), maximum)
 
 
-class Mark2(MycroftSkill):
+class Mycroft-GUI(MycroftSkill):
     """
-        The Mark2 skill handles much of the gui activities related to
+        The Mycroft-GUI skill handles much of the gui activities related to
         Mycroft's core functionality. This includes showing "listening",
         "thinking", and "speaking" faces as well as more complicated things
         such as switching to the selected resting face and handling
         system signals.
     """
     def __init__(self):
-        super().__init__('Mark2')
-
-        self.i2c_channel = 1
+        super().__init__('Mycroft-GUI')
 
         self.idle_screens = {}
         self.override_idle = None
@@ -93,9 +84,9 @@ class Mark2(MycroftSkill):
         self.max_amplitude = 0.001
 
         # System volume
-        self.volume = 0.5
+        self.volume = 7
         self.muted = False
-        self.get_hardware_volume()       # read from the device
+        self.get_pulseaudio_volume()       # get volume from pulseaudio
 
     def setup_mic_listening(self):
         """ Initializes PyAudio, starts an input stream and launches the
@@ -113,9 +104,7 @@ class Mark2(MycroftSkill):
             Registers messagebus handlers and sets default gui values.
         """
         enclosure_info = self.config_core.get('enclosure', {})
-        self.i2c_channel = enclosure_info.get('i2c_channel',
-                                              self.i2c_channel)
-
+        
         self.brightness_dict = self.translate_namedvalues('brightness.levels')
         self.gui['volume'] = 0
 
@@ -157,10 +146,10 @@ class Mark2(MycroftSkill):
             self.bus.on('gui.page_interaction', self.on_gui_page_interaction)
 
             self.bus.on('mycroft.skills.initialized', self.reset_face)
-            self.bus.on('mycroft.mark2.register_idle',
+            self.bus.on('mycroft.mycroft-gui.register_idle',
                         self.on_register_idle)
 
-            self.add_event('mycroft.mark2.reset_idle',
+            self.add_event('mycroft.mycroft-gui.reset_idle',
                            self.restore_idle_screen)
 
             # Handle device settings events
@@ -191,11 +180,7 @@ class Mark2(MycroftSkill):
             self.gui.register_handler('mycroft.device.set.idle',
                                       self.set_idle_screen)
 
-            # System events
-            self.add_event('system.reboot', self.handle_system_reboot)
-            self.add_event('system.shutdown', self.handle_system_shutdown)
-
-            # Handle volume setting via I2C
+            # Handle volume setting via pulseaudio
             self.add_event('mycroft.volume.set', self.on_volume_set)
             self.add_event('mycroft.volume.get', self.on_volume_get)
 
@@ -206,7 +191,7 @@ class Mark2(MycroftSkill):
             # Collect Idle screens and display if skill is restarted
             self.collect_resting_screens()
         except Exception:
-            LOG.exception('In Mark 2 Skill')
+            LOG.exception('In Mycroft-GUI Skill')
 
         # Update use of wake-up beep
         self._sync_wake_beep_setting()
@@ -228,25 +213,16 @@ class Mark2(MycroftSkill):
             self.thread = None
 
     ###################################################################
-    # System events
-    def handle_system_reboot(self, message):
-        self.speak_dialog('rebooting', wait=True)
-        subprocess.call(['/usr/bin/systemctl', 'reboot'])
-
-    def handle_system_shutdown(self, message):
-        subprocess.call(['/usr/bin/systemctl', 'poweroff'])
-
-    ###################################################################
     # System volume
 
     def on_volume_set(self, message):
         """ Force vol between 0.0 and 1.0. """
         vol = message.data.get("percent", 0.5)
-        vol = clip(vol, 0.0, 1.0)
+        vol = clip(vol, 0, 10)
 
         self.volume = vol
         self.muted = False
-        self.set_hardware_volume(vol)
+        self.set_pulseaudio_volume(vol)
         self.show_volume = True
 
     def on_volume_get(self, message):
@@ -254,42 +230,13 @@ class Mark2(MycroftSkill):
         self.bus.emit(message.response(data={'percent': self.volume,
                                              'muted': self.muted}))
 
-    def set_hardware_volume(self, pct):
-        """ Set the volume on hardware (which supports levels 0-63).
+    def set_pulseaudio_volume(self, pct):
+        # Set the volume through pulseaudio
+       
 
-            Arguments:
-                pct (int): audio volume (0.0 - 1.0).
-        """
-        vol = int(VOL_SMAX * pct + VOL_OFFSET) if pct >= 0.01 else VOL_ZERO
-        self.log.debug('Setting hardware volume to: {}'.format(pct))
-
-        command = ['i2cset',
-                   '-y',                   # force a write
-                   str(self.i2c_channel),  # i2c bus number
-                   '0x4b',                 # stereo amp device addr
-                   str(vol)]     # volume level, 0-63
-        self.log.info(' '.join(command))
-        try:
-            subprocess.call(command)
-        except Exception as e:
-            self.log.error('Couldn\'t set volume. ({})'.format(e))
-
-    def get_hardware_volume(self):
-        # Get the volume from hardware
-        command = ['i2cget', '-y', str(self.i2c_channel), '0x4b']
-        self.log.info(' '.join(command))
-        try:
-            vol = subprocess.check_output(command)
-            # Convert the returned hex value from i2cget
-            hw_vol = int(vol, 16)
-            hw_vol = clip(hw_vol, 0, 63)
-            self.volume = clip((hw_vol - VOL_OFFSET) / VOL_SMAX, 0.0, 1.0)
-        except subprocess.CalledProcessError as e:
-            self.log.info('I2C Communication error:  {}'.format(repr(e)))
-        except FileNotFoundError:
-            self.log.info('i2cget couldn\'t be found')
-        except Exception:
-            self.log.info('UNEXPECTED VOLUME RESULT:  {}'.format(vol))
+    def get_pulseaudio_volume(self):
+        # Get the volume from pulseaudio
+        
 
     ###################################################################
     # Idle screen mechanism
@@ -306,7 +253,7 @@ class Mark2(MycroftSkill):
 
     def collect_resting_screens(self):
         """ Trigger collection and then show the resting screen. """
-        self.bus.emit(Message('mycroft.mark2.collect_idle'))
+        self.bus.emit(Message('mycroft.mycroft-gui.collect_idle'))
         time.sleep(1)
         self.show_idle_screen()
 
@@ -334,21 +281,6 @@ class Mark2(MycroftSkill):
             self.listen()
         self.stream.close()
         self.log.debug("Listening stopped")
-
-    def get_audio_level(self):
-        """ Get level directly from audio device. """
-        try:
-            block = self.stream.read(INPUT_FRAMES_PER_BLOCK)
-        except IOError as e:
-            # damn
-            self.errorcount += 1
-            self.log.error('{} Error recording: {}'.format(self.errorcount, e))
-            return None
-
-        amplitude = get_rms(block)
-        result = int(amplitude / ((self.max_amplitude) + 0.001) * 15)
-        self.max_amplitude = max(amplitude, self.max_amplitude)
-        return result
 
     def get_listener_level(self):
         """ Get level from IPC file created by listener. """
@@ -378,8 +310,7 @@ class Mark2(MycroftSkill):
 
     def listen(self):
         """ Read microphone level and store rms into self.gui['volume']. """
-        amplitude = self.get_audio_level()
-        # amplitude = self.get_listener_level()
+        amplitude = self.get_listener_level()
 
         if (self.gui and
             ('volume' not in self.gui or self.gui['volume'] != amplitude) and
@@ -415,7 +346,7 @@ class Mark2(MycroftSkill):
         self.bus.remove('gui.page.show',
                         self.on_gui_page_show)
         self.bus.remove('gui.page_interaction', self.on_gui_page_interaction)
-        self.bus.remove('mycroft.mark2.register_idle', self.on_register_idle)
+        self.bus.remove('mycroft.mycroft-gui.register_idle', self.on_register_idle)
 
         self.stop_listening_thread()
 
@@ -425,7 +356,7 @@ class Mark2(MycroftSkill):
     def on_handler_started(self, message):
         handler = message.data.get("handler", "")
         # Ignoring handlers from this skill and from the background clock
-        if 'Mark2' in handler:
+        if 'Mycroft-GUI' in handler:
             return
         if 'TimeSkill.update_display' in handler:
             return
@@ -436,7 +367,7 @@ class Mark2(MycroftSkill):
         self.start_idle_event(30)
 
     def on_gui_page_show(self, message):
-        if 'mark-2' not in message.data.get('__from', ''):
+        if 'mycroft-gui' not in message.data.get('__from', ''):
             # Some skill other than the handler is showing a page
             self.has_show_page = True
 
@@ -482,7 +413,7 @@ class Mark2(MycroftSkill):
         """ When a skill finishes executing clear the showing page state. """
         handler = message.data.get('handler', '')
         # Ignoring handlers from this skill and from the background clock
-        if 'Mark2' in handler:
+        if 'Mycroft-GUI' in handler:
             return
         if 'TimeSkill.update_display' in handler:
             return
@@ -854,14 +785,6 @@ class Mark2(MycroftSkill):
         self.gui['state'] = 'settings/updatedevice_settings'
         self.gui.show_page('all.qml')
 
-    def handle_device_restart_action(self, message):
-        """ Device restart action. """
-        self.log.info('PlaceholderRestartAction')
-
-    def handle_device_poweroff_action(self, message):
-        """ Device poweroff action. """
-        self.log.info('PlaceholderShutdownAction')
-
 
 def create_skill():
-    return Mark2()
+    return Mycroft-GUI()

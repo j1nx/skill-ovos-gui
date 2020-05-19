@@ -1,8 +1,8 @@
 # <img src='https://raw.githack.com/FortAwesome/Font-Awesome/master/svgs/solid/cog.svg' card_color='#40DBB0' width='50' height='50' style='vertical-align:bottom'/> Mycroft Mark 2
-Customize your Mark 2
+Customize your Mycroft-GUI
 
 ## About
-The Mycroft Mark 2 has several unique capabilities which this Skill lets you
+The Mycroft-GUI has several unique capabilities which this Skill lets you
 control.
 
 ###  Faceplate Brightness
@@ -16,9 +16,10 @@ its brightness level to dim at night.
 
 ## Credits
 Mycroft AI (@MycroftAI)
+J1nx - (@j1nx) (https://www.j1nx.nl)
 
 ## Supported Devices
-platform_mark2 platform_respeaker
+MycroftOS
 
 ## Category
 **Configuration**
