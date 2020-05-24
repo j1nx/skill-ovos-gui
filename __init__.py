@@ -134,10 +134,6 @@ class MycroftGUI(MycroftSkill):
 			self.gui.register_handler('mycroft.device.show.idle',
 										self.show_idle_screen)
 
-			# Handle idle selection
-			self.gui.register_handler('mycroft.device.set.idle',
-										self.set_idle_screen)
-
 			# Collect Idle screens and display if skill is restarted
 			self.collect_resting_screens()
 		except Exception:
