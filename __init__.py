@@ -405,7 +405,7 @@ class MycroftGUI(MycroftSkill):
 			self.log.debug('Showing Idle screen for '
 							'{}'.format(self.gui['selected']))
 			screen = self.idle_screens.get(self.gui['selected'])
-			if screen:
+		if screen:
 			self.bus.emit(Message('{}.idle'.format(screen)))
 
 	def handle_listener_started(self, message):
