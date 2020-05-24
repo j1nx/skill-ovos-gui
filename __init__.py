@@ -196,7 +196,7 @@ class MycroftGUI(MycroftSkill):
 		self.stream.close()
 		self.log.debug("Listening stopped")
 
-		def get_listener_level(self):
+	def get_listener_level(self):
 		""" Get level from IPC file created by listener. """
 		time.sleep(0.05)
 		if not self.listener_file:
