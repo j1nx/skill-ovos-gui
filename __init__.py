@@ -125,10 +125,10 @@ class MycroftGUI(MycroftSkill):
 
 			self.bus.on('mycroft.skills.initialized',
 						self.reset_face)
-			self.bus.on('mycroft.mycroft-gui.register_idle',
+			self.bus.on('mycroft.mark2.register_idle',
 						self.on_register_idle)
 
-			self.add_event('mycroft.mycroft-gui.reset_idle',
+			self.add_event('mycroft.mark2.reset_idle',
 							self.restore_idle_screen)
 
 			# Use Legacy for QuickSetting delegate
@@ -173,7 +173,7 @@ class MycroftGUI(MycroftSkill):
 
 	def collect_resting_screens(self):
 		""" Trigger collection and then show the resting screen. """
-		self.bus.emit(Message('mycroft.mycroft-gui.collect_idle'))
+		self.bus.emit(Message('mycroft.mark2.collect_idle'))
 		time.sleep(1)
 		self.show_idle_screen()
 
@@ -265,7 +265,7 @@ class MycroftGUI(MycroftSkill):
 		self.bus.remove('gui.page.show',
 						self.on_gui_page_show)
 		self.bus.remove('gui.page_interaction', self.on_gui_page_interaction)
-		self.bus.remove('mycroft.mycroft-gui.register_idle', self.on_register_idle)
+		self.bus.remove('mycroft.mark2.register_idle', self.on_register_idle)
 
 		self.stop_listening_thread()
 
