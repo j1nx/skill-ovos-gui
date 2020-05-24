@@ -217,8 +217,8 @@ class MycroftGUI(MycroftSkill):
 						self.max_amplitude = ret
 					ret = int(ret / self.max_amplitude * 10)
 				return ret
-			except Exception as e:
-				self.log.error(repr(e))
+		except Exception as e:
+			self.log.error(repr(e))
 		return None
 
 	def listen(self):
