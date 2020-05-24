@@ -165,6 +165,15 @@ class MycroftGUI(MycroftSkill):
 	###################################################################
 	# Idle screen mechanism
 
+	def save_resting_screen(self):
+		""" Handler to be called if the settings are changed by
+			the GUI.
+			Stores the selected idle screen.
+		"""
+		self.log.debug("Saving resting screen")
+		self.settings['selected'] = self.gui['selected']
+		self.gui['selectedScreen'] = self.gui['selected']
+
 	def collect_resting_screens(self):
 		""" Trigger collection and then show the resting screen. """
 		self.bus.emit(Message('mycroft.mycroft-gui.collect_idle'))
