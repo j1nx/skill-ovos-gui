@@ -66,7 +66,7 @@ class MycroftGUI(MycroftSkill):
 			self.st_results = None
 			self.max_amplitude = 0.001
 
-    def setup_mic_listening(self):
+	def setup_mic_listening(self):
 		""" Initializes PyAudio, starts an input stream and launches the
 			listening thread.
 		"""
