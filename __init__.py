@@ -373,9 +373,9 @@ class MycroftGUI(MycroftSkill):
 			weak: set to true if the time should be able to be overridden
 		"""
 		with self.idle_lock:
-		if time.monotonic() + offset < self.idle_next:
-			self.log.info('No update, before next time')
-			return
+			if time.monotonic() + offset < self.idle_next:
+				self.log.info('No update, before next time')
+				return
 
 			self.log.info('Starting idle event')
 			try:
