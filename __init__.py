@@ -423,11 +423,6 @@ class MycroftGUI(MycroftSkill):
 		self.cancel_idle_event()
 		self.start_idle_event(weak=True)
 
-		# Lower the max by half at the start of listener to make sure
-		# loud noices doesn't make the level stick to much
-		if self.max_amplitude > 0.001:
-			self.max_amplitude /= 2
-
 		self.start_listening_thread()
 		# Show listening page
 		self.gui['state'] = 'listening'
