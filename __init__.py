@@ -16,6 +16,7 @@ import time
 import arrow
 from datetime import datetime
 
+from mycroft.api import is_paired
 from mycroft.messagebus.message import Message
 from mycroft.skills.core import MycroftSkill
 from mycroft.util import get_ipc_directory
@@ -416,19 +417,20 @@ class MycroftGUI(MycroftSkill):
 	def show_idle_screen(self):
 		""" Show the idle screen or return to the skill that's overriding idle.
 		"""
-		self.log.debug('Showing idle screen')
-		screen = None
-		if self.override_idle:
-			self.log.debug('Returning to override idle screen')
-			# Restore the page overriding idle instead of the normal idle
-			self.bus.emit(self.override_idle[0])
-		elif len(self.idle_screens) > 0 and 'selected' in self.gui:
-			# TODO remove hard coded value
-			self.log.debug('Showing Idle screen for '
-							'{}'.format(self.gui['selected']))
-			screen = self.idle_screens.get(self.gui['selected'])
-		if screen:
-			self.bus.emit(Message('{}.idle'.format(screen)))
+		if is_paired():
+			self.log.debug('Showing idle screen')
+			screen = None
+			if self.override_idle:
+				self.log.debug('Returning to override idle screen')
+				# Restore the page overriding idle instead of the normal idle
+				self.bus.emit(self.override_idle[0])
+			elif len(self.idle_screens) > 0 and 'selected' in self.gui:
+				# TODO remove hard coded value
+				self.log.debug('Showing Idle screen for '
+								'{}'.format(self.gui['selected']))
+				screen = self.idle_screens.get(self.gui['selected'])
+			if screen:
+				self.bus.emit(Message('{}.idle'.format(screen)))
 
 	def handle_listener_started(self, message):
 		""" Shows listener page after wakeword is triggered.
