@@ -65,7 +65,7 @@ class MycroftGUI(MycroftSkill):
 		except Exception:
 			self.listener_file = None
 			self.st_results = None
-			self.max_amplitude = 0.001
+		self.max_amplitude = 0.001
 
 	def setup_mic_listening(self):
 		""" Initializes PyAudio, starts an input stream and launches the
@@ -202,6 +202,21 @@ class MycroftGUI(MycroftSkill):
 		self.stream.close()
 		self.log.debug("Listening stopped")
 
+	def get_audio_level(self):
+		""" Get level directly from audio device. """
+		try:
+			block = self.stream.read(INPUT_FRAMES_PER_BLOCK)
+		except IOError as e:
+			# damn
+			self.errorcount += 1
+			self.log.error('{} Error recording: {}'.format(self.errorcount, e))
+			return None
+
+		amplitude = get_rms(block)
+		result = int(amplitude / ((self.max_amplitude) + 0.001) * 15)
+		self.max_amplitude = max(amplitude, self.max_amplitude)
+		return result
+
 	def get_listener_level(self):
 		""" Get level from IPC file created by listener. """
 		time.sleep(0.05)
@@ -229,7 +244,8 @@ class MycroftGUI(MycroftSkill):
 
 	def listen(self):
 		""" Read microphone level and store rms into self.gui['volume']. """
-		amplitude = self.get_listener_level()
+		#amplitude = self.get_listener_level()
+		amplitude = self.get_audio_level()
 
 		if (self.gui and
 			('volume' not in self.gui or self.gui['volume'] != amplitude) and
@@ -422,6 +438,11 @@ class MycroftGUI(MycroftSkill):
 		# Start idle timer
 		self.cancel_idle_event()
 		self.start_idle_event(weak=True)
+
+		# Lower the max by half at the start of listener to make sure
+		# loud noices doesn't make the level stick to much
+		if self.max_amplitude > 0.001:
+			self.max_amplitude /= 2
 
 		self.start_listening_thread()
 		# Show listening page
