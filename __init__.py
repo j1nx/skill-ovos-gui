@@ -13,19 +13,12 @@
 # limitations under the License.
 
 import time
-import arrow
-from datetime import datetime
-
+from mycroft.configuration import LocalConf, USER_CONFIG
 from mycroft.messagebus.message import Message
 from mycroft.skills.core import MycroftSkill
 from mycroft.util import get_ipc_directory
 from mycroft.util.log import LOG
-from mycroft.util.parse import normalize
-from mycroft import intent_file_handler
-
 import os
-import subprocess
-
 import pyaudio
 from threading import Thread, Lock
 
@@ -144,6 +137,36 @@ class MycroftGUI(MycroftSkill):
 		self._sync_wake_beep_setting()
 
 		self.settings_change_callback = self.on_websettings_changed
+
+		# blacklist conflicting skills on install
+		self.blacklist_default_skill()
+
+	def blacklist_default_skill(self):
+		# load the current list of already blacklisted skills
+		blacklist = self.config_core["skills"]["blacklisted_skills"]
+
+		# check the folder name (skill_id) of the skill you want to replace
+		skill_id = "skill-mark-2.mycroftai"
+
+		# add the skill to the blacklist
+		if skill_id not in blacklist:
+			self.log.debug("Blacklisting official mycroft skill")
+			blacklist.append(skill_id)
+
+			# load the user config file (~/.mycroft/mycroft.conf)
+			conf = LocalConf(USER_CONFIG)
+			if "skills" not in conf:
+				conf["skills"] = {}
+
+			# update the blacklist field
+			conf["skills"]["blacklisted_skills"] = blacklist
+
+			# save the user config file
+			conf.store()
+
+		# tell the intent service to unload the skill in case it was loaded already
+		# this should avoid the need to restart
+		self.bus.emit(Message("detach_skill", {"skill_id": skill_id}))
 
 	def start_listening_thread(self):
 		# Start listening thread
