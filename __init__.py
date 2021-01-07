@@ -200,6 +200,9 @@ class OVOSGuiControl(MycroftSkill):
         try:
             self.add_event("mycroft.internet.connected",
                            self.handle_internet_connected)
+            
+            self.add_event("mycroft.gui.screen.close", 
+                           self.handle_remove_namespace)
 
             # Handle the 'waking' visual
             self.add_event("recognizer_loop:wakeword",
@@ -228,6 +231,9 @@ class OVOSGuiControl(MycroftSkill):
                         self.resting_screen.on_register)
 
             self.add_event("mycroft.mark2.reset_idle",
+                           self.resting_screen.restore)
+
+            self.add_event("mycroft.display.reset_idle",
                            self.resting_screen.restore)
 
             # Handle device settings events
@@ -283,6 +289,12 @@ class OVOSGuiControl(MycroftSkill):
 
         # blacklist conflicting skills on install
         self.blacklist_default_skill()
+        
+    def handle_remove_namespace(self, message):
+        get_skill_namespace = message.data.get("skill_id", "")
+        if get_skill_namespace:
+            self.bus.emit(Message("gui.clear.namespace",
+                                  {"__from": get_skill_namespace}))
 
     def blacklist_default_skill(self):
         # load the current list of already blacklisted skills
