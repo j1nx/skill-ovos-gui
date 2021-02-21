@@ -219,11 +219,6 @@ class OVOSGuiControl(MycroftSkill):
                                       self.handle_device_restart_action)
             self.gui.register_handler("mycroft.device.settings.poweroff", 
                                       self.handle_device_poweroff_action)
-            
-            self.gui.register_handler("mycroft.device.settings.reset",
-                                      self.handle_device_factory_reset_settings)
-            self.gui.register_handler("mycroft.device.settings.update", 
-                                      self.handle_device_update_settings)
             self.gui.register_handler("mycroft.device.show.idle", 
                                       self.resting_screen.show)
 
