@@ -22,6 +22,8 @@ from pytz import timezone
 import arrow
 import astral
 import pyaudio
+from json_database import JsonStorage
+from os.path import join, dirname, abspath
 
 from mycroft.configuration.config import LocalConf, USER_CONFIG, Configuration
 from mycroft.messagebus.message import Message
@@ -30,6 +32,8 @@ from mycroft.util.log import LOG
 from mycroft.util.parse import normalize
 from mycroft import MycroftSkill, intent_handler
 from ovos_utils.system import system_reboot, system_shutdown, ssh_enable, ssh_disable
+from mycroft.api import DeviceApi, is_paired, check_remote_pairing
+
 
 def compare_origin(msg1, msg2):
     """Compare the origin Skill of two Messages.
@@ -175,6 +179,14 @@ class OVOSGuiControl(MycroftSkill):
 
         # Prepare GUI Viseme structure
         self.gui["viseme"] = {"start": 0, "visemes": []}
+        
+        store_conf = join(self.file_system.path, 'skill_conf.json')
+        if not self.file_system.exists("skill_conf.json"):
+            self.skill_conf = JsonStorage(store_conf)
+            self.skill_conf["selected_backend"] = "unknown"
+            self.skill_conf.store()
+        else:
+            self.skill_conf = JsonStorage(store_conf)
 
         try:
             # Handle network connection events
@@ -192,6 +204,8 @@ class OVOSGuiControl(MycroftSkill):
             self.bus.on("gui.page_interaction", self.on_gui_page_interaction)
 
             self.bus.on("mycroft.skills.initialized", self.reset_face)
+            self.bus.on("ovos.pairing.process.completed", self.start_homescreen_process)
+            self.bus.on("ovos.pairing.set.backend", self.set_backend_type)
             self.bus.on("mycroft.mark2.register_idle", self.resting_screen.on_register)
 
             self.add_event("mycroft.mark2.reset_idle", self.resting_screen.restore)
@@ -237,7 +251,16 @@ class OVOSGuiControl(MycroftSkill):
             # self.gui.show_page('all.qml')
 
             # Collect Idle screens and display if skill is restarted
-            self.resting_screen.collect()
+            self.device_paired = is_paired()
+            self.device_backend = self.skill_conf["selected_backend"]
+
+            if not self.device_backend == "local":
+                if self.device_paired:
+                    self.resting_screen.collect()
+            else:
+                self.resting_screen.collect()
+                self.bus.emit(Message("ovos.shell.status.ok"))
+
         except Exception:
             LOG.exception("In OVOSGuiControl Skill")
 
@@ -266,14 +289,26 @@ class OVOSGuiControl(MycroftSkill):
 
     ###################################################################
     # Idle screen mechanism
-
+    
+    def set_backend_type(self, message):
+        backend = message.data.get("backend", "unknown")
+        if not backend == "unknown":
+            self.skill_conf["selected_backend"] = backend
+            self.skill_conf.store()
+            self.device_backend = self.skill_conf["selected_backend"]
+    
+    def start_homescreen_process(self, _):
+        self.device_paired = is_paired()
+        self.resting_screen.collect()
+        
     def reset_face(self, _):
         """Triggered after skills are initialized.
 
         Sets switches from resting "face" to a registered resting screen.
         """
         time.sleep(1)
-        self.resting_screen.collect()
+        if self.device_paired or self.device_backend == "local":
+            self.resting_screen.collect()
 
     def stop(self, _=None):
         """Clear override_idle and stop visemes."""
@@ -294,6 +329,8 @@ class OVOSGuiControl(MycroftSkill):
         self.bus.remove("gui.page.show", self.on_gui_page_show)
         self.bus.remove("gui.page_interaction", self.on_gui_page_interaction)
         self.bus.remove("mycroft.mark2.register_idle", self.resting_screen.on_register)
+        self.bus.remove("ovos.pairing.process.completed", self.start_homescreen_process)
+        self.bus.remove("ovos.pairing.set.backend", self.set_backend_type)
 
     #####################################################################
     # Manage "busy" visual
@@ -397,13 +434,14 @@ class OVOSGuiControl(MycroftSkill):
         """Show the speaking page if no skill has registered a page
         to be shown in it's place.
         """
-        self.gui["viseme"] = message.data
-        if not self.has_show_page:
-            self.gui["state"] = "speaking"
-            self.gui.show_page("all.qml")
-            # Show idle screen after the visemes are done (+ 2 sec).
-            viseme_time = message.data["visemes"][-1][1] + 5
-            self.start_idle_event(viseme_time)
+        if self.device_paired or self.device_backend == "local":
+            self.gui["viseme"] = message.data
+            if not self.has_show_page:
+                self.gui["state"] = "speaking"
+                self.gui.show_page("all.qml")
+                # Show idle screen after the visemes are done (+ 2 sec).
+                viseme_time = message.data["visemes"][-1][1] + 5
+                self.start_idle_event(viseme_time)
 
     #####################################################################
     # Manage resting screen visual state
