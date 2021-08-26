@@ -241,10 +241,12 @@ class OVOSGuiControl(MycroftSkill):
                                       self.resting_screen.set)
 
             # System events
-            self.add_event("system.reboot", 
+            self.add_event("system.reboot",
                            self.handle_system_reboot)
-            self.add_event("system.shutdown", 
+            self.add_event("system.shutdown",
                            self.handle_system_shutdown)
+            self.add_event("system.display.homescreen",
+                           self.resting_screen.restore)
 
             # Show loading screen while starting up skills.
             # self.gui['state'] = 'loading'
@@ -273,10 +275,10 @@ class OVOSGuiControl(MycroftSkill):
     # System events
     def handle_system_reboot(self, _):
         self.speak_dialog("rebooting", wait=True)
-        subprocess.call(["/usr/bin/systemctl", "reboot"])
+        system_reboot()
 
     def handle_system_shutdown(self, _):
-        subprocess.call(["/usr/bin/systemctl", "poweroff"])
+        system_shutdown()
         
     def handle_remove_namespace(self, message):
         self.log.info("Got Clear Namespace Event In Mark 2 Skill")
