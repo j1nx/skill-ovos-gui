@@ -16,6 +16,9 @@ import time
 from datetime import datetime
 import os
 import subprocess
+import secrets
+import string
+import socket
 from threading import Thread, Lock
 
 from pytz import timezone
@@ -167,6 +170,11 @@ class OVOSGuiControl(MycroftSkill):
         self.resting_screen = None
         self.auto_brightness = None
 
+        # Dashboard Specific
+        self.dash_running = None
+        alphabet = string.ascii_letters + string.digits
+        self.dash_secret = ''.join(secrets.choice(alphabet) for i in range(5))
+
     def initialize(self):
         """Perform initalization.
 
@@ -235,6 +243,9 @@ class OVOSGuiControl(MycroftSkill):
                                       self.handle_device_poweroff_action)
             self.gui.register_handler("mycroft.device.show.idle", 
                                       self.resting_screen.show)
+            self.gui.register_handler("mycroft.device.settings.developer", self.handle_device_developer_settings)
+            self.gui.register_handler("mycroft.device.enable.dash", self.handle_device_developer_enable_dash)
+            self.gui.register_handler("mycroft.device.disable.dash", self.handle_device_developer_disable_dash)
 
             # Handle idle selection
             self.gui.register_handler("mycroft.device.set.idle", 
@@ -727,6 +738,12 @@ class OVOSGuiControl(MycroftSkill):
         """ Display ssh settings page. """
         self.gui['state'] = 'settings/ssh_settings'
         self.gui.show_page('all.qml')
+        
+    def handle_device_developer_settings(self, message):
+        """ Display developer settings page. """
+        self.gui['state'] = 'settings/developer_settings'
+        self.handle_device_dashboard_status_check()
+        self.gui.show_page('all.qml')
 
     def handle_device_set_ssh(self, message):
         """ Set ssh settings """
@@ -745,7 +762,74 @@ class OVOSGuiControl(MycroftSkill):
         """ Device poweroff action. """
         self.log.info("Powering Off")
         system_shutdown()
+        
+    def handle_device_developer_enable_dash(self, message):
+        self.log.info("Enabling Dashboard")
+        os.environ["SIMPLELOGIN_USERNAME"] = "OVOS"
+        os.environ["SIMPLELOGIN_PASSWORD"] = self.dash_secret
+        build_call = "systemctl --user start ovos-dashboard@'{0}'.service".format(self.dash_secret)
+        call_dash = subprocess.Popen([build_call], shell = True)
+        time.sleep(3)
+        build_status_check_call = "systemctl --user is-active --quiet ovos-dashboard@'{0}'.service".format(self.dash_secret)
+        status = os.system(build_status_check_call)
 
+        if status == 0:
+            self.dash_running = True
+        else:
+            self.dash_running = False
+        
+        if self.dash_running:
+            self.gui["dashboard_enabled"] = self.dash_running
+            self.gui["dashboard_url"] = "https://{0}:5000".format(self._get_local_ip())
+            self.gui["dashboard_user"] = "OVOS"
+            self.gui["dashboard_password"] = self.dash_secret
+
+    def handle_device_developer_disable_dash(self, message):
+        self.log.info("Disabling Dashboard")
+        build_call = "systemctl --user stop ovos-dashboard@'{0}'.service".format(self.dash_secret)
+        subprocess.Popen([build_call], shell = True)
+        time.sleep(3)
+        build_status_check_call = "systemctl --user is-active --quiet ovos-dashboard@'{0}'.service".format(self.dash_secret)
+        status = os.system(build_status_check_call)
+
+        if status == 0:
+            self.dash_running = True
+        else:
+            self.dash_running = False
+
+        if not self.dash_running:
+            self.gui["dashboard_enabled"] = self.dash_running
+            self.gui["dashboard_url"] = ""
+            self.gui["dashboard_user"] = ""
+            self.gui["dashboard_password"] = ""
+
+    def handle_device_dashboard_status_check(self):
+        build_status_check_call = "systemctl --user is-active --quiet ovos-dashboard@'{0}'.service".format(self.dash_secret)
+        status = os.system(build_status_check_call)
+
+        self.log.info(self.dash_secret)
+        self.log.info(status)
+
+        if status == 0:
+            self.dash_running = True
+        else:
+            self.dash_running = False
+
+        if self.dash_running:
+            self.gui["dashboard_enabled"] = self.dash_running
+            self.gui["dashboard_url"] = "https://{0}:5000".format(self._get_local_ip())
+            self.gui["dashboard_user"] = "OVOS"
+            self.gui["dashboard_password"] = self.dash_secret
+
+    #####################################################################
+    # Helper Methods
+
+    def _get_local_ip(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
 
 def create_skill():
     return OVOSGuiControl()

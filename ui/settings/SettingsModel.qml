@@ -20,6 +20,12 @@ ListModel {
         settingCall: "show ssh settings" 
     }
     ListElement {
+        settingIcon: "images/settings.png"
+        settingName: "Developer Settings"
+        settingEvent: "mycroft.device.settings.developer"
+        settingCall: "" 
+    }
+    ListElement {
         settingIcon: "images/restart.svg"
         settingName: "Reboot"
         settingEvent: "mycroft.device.settings.restart"
