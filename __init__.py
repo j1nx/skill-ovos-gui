@@ -131,6 +131,10 @@ class RestingScreen:
         if time.monotonic() > self.override_set_time + 7:
             self.restore()
 
+    def force_stop(self):
+        self.override_idle = None
+        self.show()
+
     def override(self, message=None):
         """Override the resting screen.
 
@@ -257,7 +261,7 @@ class OVOSGuiControl(MycroftSkill):
             self.add_event("system.shutdown",
                            self.handle_system_shutdown)
             self.add_event("system.display.homescreen",
-                           self.resting_screen.restore)
+                           self.resting_screen.force_stop)
 
             # Show loading screen while starting up skills.
             # self.gui['state'] = 'loading'
