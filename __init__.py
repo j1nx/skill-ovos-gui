@@ -201,17 +201,8 @@ class OVOSGuiControlSkill(MycroftSkill):
             self.skill_conf = JsonStorage(store_conf)
 
         try:
-            # Handle network connection events
-            self.add_event("mycroft.internet.connected", self.handle_internet_connected)
-
             # Handle the 'busy' visual
             self.bus.on("mycroft.skill.handler.start", self.on_handler_started)
-
-            self.bus.on("recognizer_loop:sleep", self.on_handler_sleep)
-            self.bus.on("mycroft.awoken", self.on_handler_awoken)
-            self.bus.on("enclosure.mouth.reset", self.on_handler_mouth_reset)
-            self.bus.on("recognizer_loop:audio_output_end", self.on_handler_mouth_reset)
-            self.bus.on("enclosure.mouth.viseme_list", self.on_handler_speaking)
             self.bus.on("gui.page.show", self.on_gui_page_show)
             self.bus.on("gui.page_interaction", self.on_gui_page_interaction)
 
@@ -338,11 +329,6 @@ class OVOSGuiControlSkill(MycroftSkill):
         """Cleanly shutdown the Skill removing any manual event handlers"""
         # Gotta clean up manually since not using add_event()
         self.bus.remove("mycroft.skill.handler.start", self.on_handler_started)
-        self.bus.remove("recognizer_loop:sleep", self.on_handler_sleep)
-        self.bus.remove("mycroft.awoken", self.on_handler_awoken)
-        self.bus.remove("enclosure.mouth.reset", self.on_handler_mouth_reset)
-        self.bus.remove("recognizer_loop:audio_output_end", self.on_handler_mouth_reset)
-        self.bus.remove("enclosure.mouth.viseme_list", self.on_handler_speaking)
         self.bus.remove("gui.page.show", self.on_gui_page_show)
         self.bus.remove("gui.page_interaction", self.on_gui_page_interaction)
         self.bus.remove("mycroft.mark2.register_idle", self.resting_screen.on_register)
@@ -410,20 +396,6 @@ class OVOSGuiControlSkill(MycroftSkill):
                 # Set default idle screen timer
                 self.start_idle_event(30)
 
-    def on_handler_mouth_reset(self, _):
-        """ Restore viseme to a smile. """
-        pass
-
-    def on_handler_sleep(self, _):
-        """ Show resting face when going to sleep. """
-        self.gui["state"] = "resting"
-        self.gui.show_page("all.qml")
-
-    def on_handler_awoken(self, _):
-        """ Show awake face when sleep ends. """
-        self.gui["state"] = "awake"
-        self.gui.show_page("all.qml")
-
     def on_handler_complete(self, message):
         """ When a skill finishes executing clear the showing page state. """
         handler = message.data.get("handler", "")
@@ -445,22 +417,6 @@ class OVOSGuiControlSkill(MycroftSkill):
             # so that it misses the mycroft.skill.handler.start but
             # catches the mycroft.skill.handler.complete
             pass
-
-    #####################################################################
-    # Manage "speaking" visual
-
-    def on_handler_speaking(self, message):
-        """Show the speaking page if no skill has registered a page
-        to be shown in it's place.
-        """
-        if self.device_paired or self.device_backend == "local":
-            self.gui["viseme"] = message.data
-            if not self.has_show_page:
-                self.gui["state"] = "speaking"
-                self.gui.show_page("all.qml")
-                # Show idle screen after the visemes are done (+ 2 sec).
-                viseme_time = message.data["visemes"][-1][1] + 5
-                self.start_idle_event(viseme_time)
 
     #####################################################################
     # Manage resting screen visual state
@@ -494,13 +450,6 @@ class OVOSGuiControlSkill(MycroftSkill):
                 self.log.debug("Showing idle screen in " "{} seconds".format(offset))
             except Exception as e:
                 self.log.exception(repr(e))
-
-    #####################################################################
-    # Manage network
-
-    def handle_internet_connected(self, _):
-        """ System came online later after booting. """
-        self.enclosure.mouth_reset()
 
     #####################################################################
     # Web settings

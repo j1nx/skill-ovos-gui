@@ -10,7 +10,7 @@ PLUGIN_ENTRY_POINT = 'mycroft-mark-2.mycroftai=ovos_skill_mycroft_gui:OVOSGuiCon
 setup(
     # this is the package name that goes on pip
     name='ovos-skill-mycroft-gui',
-    version='0.0.1',
+    version='0.0.2',
     description='OVOS mycroft gui skill plugin',
     url='https://github.com/OpenVoiceOS/skill-ovos-mycroftgui',
     author='AIIX',
