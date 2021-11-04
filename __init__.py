@@ -152,7 +152,7 @@ class RestingScreen:
         self.override_idle = None
 
 
-class OVOSGuiControl(MycroftSkill):
+class OVOSGuiControlSkill(MycroftSkill):
     """
     The OVOSGuiControl skill handles much of the gui activities related to Mycroft's
     core functionality. This includes showing "speaking" faces as well as
@@ -836,4 +836,4 @@ class OVOSGuiControl(MycroftSkill):
         return ip
 
 def create_skill():
-    return OVOSGuiControl()
+    return OVOSGuiControlSkill()
