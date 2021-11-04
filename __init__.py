@@ -189,9 +189,6 @@ class OVOSGuiControlSkill(MycroftSkill):
         self.brightness_dict = self.translate_namedvalues("brightness.levels")
         self.gui["volume"] = 0
 
-        # Prepare GUI Viseme structure
-        self.gui["viseme"] = {"start": 0, "visemes": []}
-        
         store_conf = join(self.file_system.path, 'skill_conf.json')
         if not self.file_system.exists("skill_conf.json"):
             self.skill_conf = JsonStorage(store_conf)
@@ -254,9 +251,6 @@ class OVOSGuiControlSkill(MycroftSkill):
             self.add_event("system.display.homescreen",
                            self.resting_screen.force_stop)
 
-            # Show loading screen while starting up skills.
-            # self.gui['state'] = 'loading'
-            # self.gui.show_page('all.qml')
 
             # Collect Idle screens and display if skill is restarted
             self.device_paired = is_paired()
@@ -322,7 +316,6 @@ class OVOSGuiControlSkill(MycroftSkill):
         """Clear override_idle and stop visemes."""
         self.log.debug("Stop received")
         self.resting_screen.stop()
-        self.gui["viseme"] = {"start": 0, "visemes": []}
         return False
 
     def shutdown(self):
