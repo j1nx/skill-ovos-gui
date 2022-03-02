@@ -22,7 +22,7 @@ allow_unknown = False
 allow_unlicense = True
 allow_ambiguous = False
 
-pkg_name = "ovos-skill-mycroft-gui"
+pkg_name = "ovos-skill-mycroftgui"
 
 
 class TestLicensing(unittest.TestCase):

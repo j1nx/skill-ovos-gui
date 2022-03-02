@@ -187,7 +187,7 @@ class OVOSGuiControlSkill(MycroftSkill):
         self.resting_screen = RestingScreen(self.bus, self.gui, self.log, self.settings)
 
         self.brightness_dict = self.translate_namedvalues("brightness.levels")
-        self.gui["volume"] = 0
+        self.gui["mycroftgui"] = 0
 
         # Prepare GUI Viseme structure
         self.gui["viseme"] = {"start": 0, "visemes": []}

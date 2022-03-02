@@ -11,9 +11,9 @@ Item {
         anchors.centerIn: parent
         width: parent.width/3*2
         radius: width
-        height: getLength(sessionData.volume, strength)
+        height: getLength(sessionData.mycroftgui, strength)
         color: "#40DBB0"
-        opacity: getOpacity(sessionData.volume)
+        opacity: getOpacity(sessionData.mycroftgui)
 
         Behavior on height {
             PropertyAnimation {

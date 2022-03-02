@@ -1,4 +1,4 @@
-""" Functions for reading the volume level. """
+""" Functions for reading the mycroftgui level. """
 
 import pyaudio
 import struct
